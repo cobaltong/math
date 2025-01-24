@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta name="referrer" content="no-referrer-when-downgrade">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Math Operations Site</title>
+  <style>
+    @font-face {
+      font-family: "Arial";
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    body {
+      font-family: "Arial", cursive;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    h1,
+    h2 {
+      color: #333;
+    }
+
+    .section {
+      background-color: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    input,
+    button {
+      font-family: "Arial", cursive;
+      margin: 5px;
+      padding: 5px;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 14px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #result {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+
+<script>
+    (function() {
+      window.addEventListener("error", (event) => {
+        console.log("ERROR EVENT", event);
+        window.parent.postMessage({
+            type: "IFRAME_ERROR_EVENT",
+            message: event.message,
+            filename: event.filename,
+            error: event.error,
+            lineno: event.lineno,
+            colno: event.colno,
+          },
+          "*"
+        );
+      });
+
+      window.addEventListener('unhandledrejection', (event) => {
+        window.parent.postMessage(
+          {
+            type: 'IFRAME_UNHANDLED_REJECTION_EVENT',
+            message: event.reason?.message || String(event.reason),
+            stack: event.reason?.stack || null,
+            reason: event.reason,
+          },
+          '*'
+        )
+      })
+    })()
+  </script></head>
+
+<body>
+<script>
+ (function() {
+      const targetNode = document.body;
+      const config = {
+        childList: true,
+        subtree: true,
+      };
+      const callback = (mutationsList, observer) => {
+        for (const mutation of mutationsList) {
+          if (mutation.type === 'childList') {
+            mutation.addedNodes.forEach(node => {
+              if (node.tagName === 'A') {
+                node.addEventListener('click', (evt) => {
+                  evt.preventDefault();
+                  window.parent.postMessage({
+                    type: 'REQ_REDIRECT_EVENT',
+                    href: node.href,
+                    target: node.target,
+                  }, '*')
+                })
+              }
+            })
+          }
+        }
+      };
+      const observer = new MutationObserver(callback);
+      observer.observe(targetNode, config);
+    })();
+</script>
+
+  <h1>Math Operations Site</h1>
+
+  <div class="section">
+    <h2>GCF, LCM, Factors, and Prime Factorization</h2>
+    <input type="number" id="num1" placeholder="Enter number 1">
+    <input type="number" id="num2" placeholder="Enter number 2">
+    <button onclick="calculateGCF()">Calculate GCF</button>
+    <button onclick="calculateLCM()">Calculate LCM</button>
+    <button onclick="calculateFactors()">Calculate Factors</button>
+    <button onclick="calculatePrimeFactorization()">Prime Factorization</button>
+    <div id="result1"></div>
+  </div>
+
+  <div class="section">
+    <h2>Simplify and Evaluate Expressions</h2>
+    <input type="text" id="expression" placeholder="Enter expression">
+    <button onclick="simplifyExpression()">Simplify Expression</button>
+    <button onclick="evaluateExpression()">Evaluate Expression</button>
+    <div id="result2"></div>
+  </div>
+
+  <div class="section">
+    <h2>Exponents and Roots</h2>
+    <input type="number" id="base" placeholder="Enter base">
+    <input type="number" id="exponent" placeholder="Enter exponent">
+    <button onclick="calculatePower()">Calculate Power</button>
+    <button onclick="calculateRoot()">Calculate Root</button>
+    <div id="result3"></div>
+  </div>
+
+  <script>
+    (function() {
+      let Variables = {
+        maxNumber: 1000000, // Maximum number allowed for calculations
+        maxTerms: 10, // Maximum number of terms in an expression
+        maxExponent: 10 // Maximum exponent allowed
+      };
+      // GCF, LCM, Factors, and Prime Factorization
+      function gcd(a, b) {
+        return b === 0 ? a : gcd(b, a % b);
+      }
+
+      function lcm(a, b) {
+        return (a * b) / gcd(a, b);
+      }
+
+      function getFactors(num) {
+        let factors = [];
+        for (let i = 1; i <= num; i++) {
+          if (num % i === 0) {
+            factors.push(i);
+          }
+        }
+        return factors;
+      }
+
+      function getPrimeFactors(num) {
+        let factors = [];
+        let divisor = 2;
+        while (num > 1) {
+          if (num % divisor === 0) {
+            factors.push(divisor);
+            num /= divisor;
+          } else {
+            divisor++;
+          }
+        }
+        return factors;
+      }
+      window.calculateGCF = function() {
+        const num1 = parseInt(document.getElementById('num1').value);
+        const num2 = parseInt(document.getElementById('num2').value);
+        if (isNaN(num1) || isNaN(num2) || num1 > Variables.maxNumber || num2 > Variables.maxNumber) {
+          document.getElementById('result1').innerText = "Please enter valid numbers (max " + Variables.maxNumber + ").";
+          return;
+        }
+        const result = gcd(num1, num2);
+        document.getElementById('result1').innerText = `GCF of ${num1} and ${num2} is ${result}`;
+      };
+      window.calculateLCM = function() {
+        const num1 = parseInt(document.getElementById('num1').value);
+        const num2 = parseInt(document.getElementById('num2').value);
+        if (isNaN(num1) || isNaN(num2) || num1 > Variables.maxNumber || num2 > Variables.maxNumber) {
+          document.getElementById('result1').innerText = "Please enter valid numbers (max " + Variables.maxNumber + ").";
+          return;
+        }
+        const result = lcm(num1, num2);
+        document.getElementById('result1').innerText = `LCM of ${num1} and ${num2} is ${result}`;
+      };
+      window.calculateFactors = function() {
+        const num = parseInt(document.getElementById('num1').value);
+        if (isNaN(num) || num > Variables.maxNumber) {
+          document.getElementById('result1').innerText = "Please enter a valid number (max " + Variables.maxNumber + ").";
+          return;
+        }
+        const factors = getFactors(num);
+        document.getElementById('result1').innerText = `Factors of ${num} are: ${factors.join(', ')}`;
+      };
+      window.calculatePrimeFactorization = function() {
+        const num = parseInt(document.getElementById('num1').value);
+        if (isNaN(num) || num > Variables.maxNumber) {
+          document.getElementById('result1').innerText = "Please enter a valid number (max " + Variables.maxNumber + ").";
+          return;
+        }
+        const primeFactors = getPrimeFactors(num);
+        document.getElementById('result1').innerText = `Prime factorization of ${num} is: ${primeFactors.join(' × ')}`;
+      };
+      function simplifyExpr(expr) {
+        expr = expr.replace(/\s+/g, '');
+        const terms = expr.match(/[+-]?\d*[a-z]?/g); // this might not cover EVERYTHING for now
+        const simplified = {}; // since there are tons of things you can simplify
+        terms.forEach(term => { // im taking a more basic approach
+          const match = term.match(/([+-]?\d*)([a-z]?)/);
+          const coefficient = match[1] === '' ? 1 : match[1] === '-' ? -1 : parseInt(match[1]);
+          const variable = match[2];
+          if (variable in simplified) {
+            simplified[variable] += coefficient;
+          } else {
+            simplified[variable] = coefficient;
+          }
+        });
+        return Object.entries(simplified)
+          .map(([variable, coefficient]) =>
+            (coefficient === 0 ? '' :
+              coefficient === 1 && variable !== '' ? variable :
+              coefficient === -1 && variable !== '' ? `-${variable}` :
+              `${coefficient}${variable}`))
+          .filter(term => term !== '')
+          .join(' + ')
+          .replace(/\+ -/g, '- ');
+      }
+
+      function evaluateExpr(expr) {
+        return eval(expr);
+      }
+      window.simplifyExpression = function() {
+        const expr = document.getElementById('expression').value;
+        const simplified = simplifyExpr(expr);
+        document.getElementById('result2').innerText = `Simplified expression: ${simplified}`;
+      };
+      window.evaluateExpression = function() {
+        const expr = document.getElementById('expression').value;
+        try {
+          const result = evaluateExpr(expr);
+          document.getElementById('result2').innerText = `Evaluated result: ${result}`;
+        } catch (error) {
+          document.getElementById('result2').innerText = "Invalid expression";
+        }
+      };
+      // Exponents and Roots
+      window.calculatePower = function() {
+        const base = parseFloat(document.getElementById('base').value);
+        const exponent = parseInt(document.getElementById('exponent').value);
+        if (isNaN(base) || isNaN(exponent) || exponent > Variables.maxExponent) {
+          document.getElementById('result3').innerText = "Please enter valid numbers (max exponent " + Variables.maxExponent + ").";
+          return;
+        }
+        const result = Math.pow(base, exponent);
+        document.getElementById('result3').innerText = `${base}^${exponent} = ${result}`;
+      };
+      window.calculateRoot = function() {
+        const base = parseFloat(document.getElementById('base').value);
+        const root = parseInt(document.getElementById('exponent').value);
+        if (isNaN(base) || isNaN(root) || root > Variables.maxExponent) {
+          document.getElementById('result3').innerText = "Please enter valid numbers (max root " + Variables.maxExponent + ").";
+          return;
+        }
+        const result = Math.pow(base, 1 / root);
+        document.getElementById('result3').innerText = `${root}th root of ${base} = ${result}`;
+      };
+    })();
+  </script>
+
+</body>
+
+</html>
