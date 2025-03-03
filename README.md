@@ -1,4 +1,4 @@
-vvThis was made for my math teacher.
+This was made for my math teacher.
 Currently, you can: <br>
 Calculate GCFs, LCMs, factors and prime factorization <br>
 Simplify and evaluate expressions <br>
