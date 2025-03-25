@@ -7,4 +7,4 @@ Calculate radicals (may be buggy) <br>
 
 <a href="https://cobaltong.github.io/math/Math%20Operations%20Site.html"> Click </a> on the blue text to open the site. <br>
 known bugs:<br>
-it tries to simplify equations incorrectly sometimes
+<s>it tries to simplify equations incorrectly sometimes</s> FINALLY FIXED, BABY! after months.
