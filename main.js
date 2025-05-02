@@ -1,6 +1,6 @@
 let Variables = {
   maxNumber: 1000000, // Maximum number allowed for calculations
-  maxTerms: 10, // Maximum number of terms in an expression
+  maxTerms: 10, // Maximum number of terms in an expression - Note: This is not currently enforced
   maxExponent: 10 // Maximum exponent allowed
 };
 
@@ -15,6 +15,8 @@ function lcm(a, b) {
 
 function getFactors(num) {
   let factors = [];
+  // Handle negative numbers? For now, assume positive
+  if (num < 0) num = Math.abs(num);
   for (let i = 1; i <= num; i++) {
     if (num % i === 0) {
       factors.push(i);
@@ -25,6 +27,8 @@ function getFactors(num) {
 
 function getPrimeFactors(num) {
   let factors = [];
+  // Handle negative numbers? For now, assume positive
+  if (num < 0) num = Math.abs(num);
   let divisor = 2;
   while (num > 1) {
     if (num % divisor === 0) {
@@ -40,8 +44,8 @@ function getPrimeFactors(num) {
 window.calculateGCF = function() {
   const num1 = parseInt(document.getElementById('num1').value);
   const num2 = parseInt(document.getElementById('num2').value);
-  if (isNaN(num1) || isNaN(num2) || num1 > Variables.maxNumber || num2 > Variables.maxNumber) {
-    document.getElementById('result1').innerText = "Please enter valid numbers (max " + Variables.maxNumber + ").";
+  if (isNaN(num1) || isNaN(num2) || num1 > Variables.maxNumber || num2 > Variables.maxNumber || num1 < 0 || num2 < 0) {
+    document.getElementById('result1').innerText = "Please enter valid positive numbers (max " + Variables.maxNumber + ").";
     return;
   }
   const result = gcd(num1, num2);
@@ -51,8 +55,8 @@ window.calculateGCF = function() {
 window.calculateLCM = function() {
   const num1 = parseInt(document.getElementById('num1').value);
   const num2 = parseInt(document.getElementById('num2').value);
-  if (isNaN(num1) || isNaN(num2) || num1 > Variables.maxNumber || num2 > Variables.maxNumber) {
-    document.getElementById('result1').innerText = "Please enter valid numbers (max " + Variables.maxNumber + ").";
+  if (isNaN(num1) || isNaN(num2) || num1 > Variables.maxNumber || num2 > Variables.maxNumber || num1 < 0 || num2 < 0) {
+    document.getElementById('result1').innerText = "Please enter valid positive numbers (max " + Variables.maxNumber + ").";
     return;
   }
   const result = lcm(num1, num2);
@@ -61,8 +65,8 @@ window.calculateLCM = function() {
 
 window.calculateFactors = function() {
   const num = parseInt(document.getElementById('num1').value);
-  if (isNaN(num) || num > Variables.maxNumber) {
-    document.getElementById('result1').innerText = "Please enter a valid number (max " + Variables.maxNumber + ").";
+  if (isNaN(num) || num > Variables.maxNumber || num < 0) {
+    document.getElementById('result1').innerText = "Please enter a valid positive number (max " + Variables.maxNumber + ").";
     return;
   }
   const factors = getFactors(num);
@@ -71,8 +75,8 @@ window.calculateFactors = function() {
 
 window.calculatePrimeFactorization = function() {
   const num = parseInt(document.getElementById('num1').value);
-  if (isNaN(num) || num > Variables.maxNumber) {
-    document.getElementById('result1').innerText = "Please enter a valid number (max " + Variables.maxNumber + ").";
+  if (isNaN(num) || num > Variables.maxNumber || num < 0) {
+    document.getElementById('result1').innerText = "Please enter a valid positive number (max " + Variables.maxNumber + ").";
     return;
   }
   const primeFactors = getPrimeFactors(num);
@@ -80,49 +84,144 @@ window.calculatePrimeFactorization = function() {
 };
 
 function simplifyExpr(expr) {
+  // Basic cleanup and handle leading sign/space
   expr = expr.replace(/\s+/g, '');
-  // simplify equations. finally fixed this after procrastinating for MONTHS lmfao
-  const terms = expr.match(/[+-]?[0-9]*[a-zA-Z]?(?:\^[0-9]+)?/g).filter(Boolean);
-  const simplified = {};
-  
+  if (expr.startsWith('+')) expr = expr.substring(1); // Remove leading plus if exists
+
+  // Regex to find terms: [+-]? followed by optional number (int or float), optional variable, optional exponent
+  // This regex assumes the input is expanded (no parentheses like 3(x+6))
+  const terms = expr.match(/[+-]?\s*[0-9]*(?:\.[0-9]+)?[a-zA-Z]?(?:\^[0-9]+)?/g)?.filter(Boolean) || [];
+  const simplified = {}; // Use an object to sum coefficients per term key
+
   terms.forEach(term => {
-    // Updated regex to capture coefficient, variable, and exponent
-    const match = term.match(/([+-]?[0-9]*)([a-zA-Z]?)(?:\^([0-9]+))?/);
-    let coefficient = match[1];
-    
-    // Better coefficient handling
-    if (coefficient === '') coefficient = '1';
-    else if (coefficient === '+') coefficient = '1';
-    else if (coefficient === '-') coefficient = '-1';
-    
-    coefficient = parseInt(coefficient);
-    
-    const variable = match[2];
-    const exponent = match[3] ? match[3] : (variable ? '1' : '0');
-    const key = variable + (exponent !== '1' ? '^' + exponent : '');
-    
+    // Updated regex to capture sign, coefficient, variable, and exponent more reliably
+    const match = term.match(/^([+-]?)\s*([0-9]*(?:\.[0-9]+)?)([a-zA-Z]?)(?:\^([0-9]+))?$/);
+
+    if (!match) {
+        // If a term doesn't match the pattern, it's likely invalid or complex (like parentheses)
+        // For now, we might skip it or flag an error. Given the prompt, let's try to handle it.
+        // If it's just a number or variable not caught, refine the regex.
+        console.warn(`Could not parse term: ${term}`);
+        // Attempt a fallback for simple numbers/variables not caught by main regex
+        const simpleMatch = term.match(/^([+-]?)\s*([0-9]*(?:\.[0-9]+)?)([a-zA-Z]?)$/);
+        if (simpleMatch) {
+             match[1] = simpleMatch[1];
+             match[2] = simpleMatch[2];
+             match[3] = simpleMatch[3];
+             match[4] = undefined; // No exponent
+        } else {
+             return; // Skip terms that still can't be parsed simply
+        }
+    }
+
+    let sign = match[1] || '+';
+    let coefficientStr = match[2];
+    const variable = match[3] || '';
+    let exponent = match[4]; // Exponent is only captured if present
+
+    // Determine coefficient value
+    let coefficient;
+    if (coefficientStr === '') {
+      // If coefficient string is empty, it's 1 or -1 (e.g., 'x' or '-y')
+      coefficient = sign === '-' ? -1 : 1;
+    } else {
+      coefficient = parseFloat(coefficientStr);
+      if (sign === '-') coefficient *= -1;
+    }
+
+    // Determine exponent if not explicitly present
+    if (exponent === undefined) {
+      exponent = variable ? '1' : '0'; // Exponent is 1 if there's a variable, 0 if it's a constant
+    }
+
+    // Create a key based on variable and exponent for grouping (e.g., "x_1", "y_2", "_0" for constants)
+    const key = `${variable}_${exponent}`;
+
     if (key in simplified) {
       simplified[key] += coefficient;
     } else {
       simplified[key] = coefficient;
     }
   });
-  
-  // Better output formatting
-  return Object.entries(simplified)
-    .filter(([key, coefficient]) => coefficient !== 0)
-    .map(([key, coefficient]) => {
-      if (key === '') return coefficient.toString();
-      if (coefficient === 1) return key;
-      if (coefficient === -1) return '-' + key;
-      return coefficient + key;
-    })
-    .join(' + ')
-    .replace(/\+ -/g, '- ') || '0';
+
+  // Sort keys to produce a standard output order (variables descending exponent, then constants at the end)
+  const sortedKeys = Object.keys(simplified).sort((a, b) => {
+      const [varA, expA] = a.split('_');
+      const [varB, expB] = b.split('_');
+
+      // Constants always come last (key starts with _)
+      const aIsConstant = varA === '';
+      const bIsConstant = varB === '';
+      if (aIsConstant && !bIsConstant) return 1;
+      if (!aIsConstant && bIsConstant) return -1;
+
+      // If both are constants, their order doesn't matter much (only one key '_0')
+      if (aIsConstant && bIsConstant) return 0;
+
+      // If both have variables, sort alphabetically by variable name
+      if (varA !== varB) {
+          return varA.localeCompare(varB);
+      }
+
+      // If variables are the same, sort by exponent descending (e.g., x^2 before x^1)
+      return parseInt(expB) - parseInt(expA);
+  });
+
+
+  // Format the output string from simplified terms
+  const resultTerms = sortedKeys
+    .filter(key => simplified[key] !== 0) // Filter out terms that sum to zero
+    .map(key => {
+      const coefficient = simplified[key];
+      const [variable, exponent] = key.split('_');
+
+      // Handle constant term (variable is empty, exponent is '0')
+      if (variable === '' && exponent === '0') {
+          return coefficient.toString(); // Just return the number
+      }
+
+      // Handle terms with variables
+      let termString = '';
+      if (coefficient === 1) {
+          termString = variable; // e.g., "x"
+      } else if (coefficient === -1) {
+          termString = '-' + variable; // e.g., "-x"
+      } else {
+          termString = coefficient + variable; // e.g., "3x", "-2y"
+      }
+
+      // Add exponent if it's not '1'
+      if (exponent !== '1') {
+          termString += '^' + exponent; // e.g., "x^2", "3y^5"
+      }
+
+      return termString;
+    });
+
+  // Join terms with " + " and clean up " + -"
+  let result = resultTerms.join(' + ').replace(/\+ -/g, '- ');
+
+  // If result is empty (all terms canceled out), return "0"
+  return result || '0';
 }
 
 function evaluateExpr(expr) {
-  return eval(expr);
+  // Basic check to prevent arbitrary code execution
+  // This is a simplified approach and can be bypassed with complex expressions.
+  // For a robust solution, a proper parser is needed.
+  if (/^[0-9+\-*/().\s]+$/.test(expr)) {
+     try {
+       // Use Function constructor for safer evaluation than direct eval()
+       // Still not perfectly safe, but better than raw eval.
+       // For production, a dedicated math expression library is recommended.
+       const safeEval = new Function('return ' + expr);
+       return safeEval();
+     } catch (error) {
+       return "Error in evaluation";
+     }
+  } else {
+     return "Expression contains invalid characters or format";
+  }
 }
 
 window.simplifyExpression = function() {
@@ -133,74 +232,114 @@ window.simplifyExpression = function() {
 
 window.evaluateExpression = function() {
   const expr = document.getElementById('expression').value;
-  try {
-    const result = evaluateExpr(expr);
-    document.getElementById('result2').innerText = `Evaluated result: ${result}`;
-  } catch (error) {
-    document.getElementById('result2').innerText = "Invalid expression";
-  }
+  const result = evaluateExpr(expr); // evaluateExpr now returns error message directly
+  document.getElementById('result2').innerText = `Evaluated result: ${result}`;
 };
 
 // Exponents and Roots
 window.calculatePower = function() {
   const base = parseFloat(document.getElementById('base').value);
-  const exponent = parseInt(document.getElementById('exponent').value);
-  if (isNaN(base) || isNaN(exponent) || exponent > Variables.maxExponent) {
+  const exponent = parseFloat(document.getElementById('exponent').value); // Allow non-integer exponents for roots
+  if (isNaN(base) || isNaN(exponent) || Math.abs(exponent) > Variables.maxExponent) { // Check absolute value for max exponent
     document.getElementById('result3').innerText = "Please enter valid numbers (max exponent " + Variables.maxExponent + ").";
     return;
   }
   const result = Math.pow(base, exponent);
-  document.getElementById('result3').innerText = `${base}^${exponent} = ${result}`;
+   if (isNaN(result)) {
+       document.getElementById('result3').innerText = "Calculation error (e.g., negative base with non-integer exponent)";
+   } else if (!isFinite(result)) {
+       document.getElementById('result3').innerText = "Result is too large or too small";
+   }
+   else {
+      document.getElementById('result3').innerText = `${base}^${exponent} = ${result}`;
+   }
 };
 
 window.calculateRoot = function() {
   const base = parseFloat(document.getElementById('base').value);
-  const root = parseInt(document.getElementById('exponent').value);
-  if (isNaN(base) || isNaN(root) || root > Variables.maxExponent) {
-    document.getElementById('result3').innerText = "Please enter valid numbers (max root " + Variables.maxExponent + ").";
+  const root = parseFloat(document.getElementById('exponent').value); // 'exponent' input is used for the root index
+  if (isNaN(base) || isNaN(root) || root === 0 || Math.abs(root) > Variables.maxExponent) {
+    document.getElementById('result3').innerText = "Please enter valid numbers (root cannot be 0, max root index " + Variables.maxExponent + ").";
     return;
   }
+  if (base < 0 && root % 2 === 0) {
+       document.getElementById('result3').innerText = "Cannot calculate even root of a negative number (for real numbers).";
+       return;
+  }
   const result = Math.pow(base, 1 / root);
-  document.getElementById('result3').innerText = `${root}th root of ${base} = ${result}`;
+  if (isNaN(result)) {
+       document.getElementById('result3').innerText = "Calculation error.";
+   } else if (!isFinite(result)) {
+       document.getElementById('result3').innerText = "Result is too large or too small";
+   }
+  else {
+    document.getElementById('result3').innerText = `${root}th root of ${base} = ${result}`;
+  }
 };
 
 // Radicals functions
 function findSquareRoot(number) {
+  if (number < 0) return "Cannot calculate square root of a negative number (for real numbers)";
   return Math.sqrt(number);
 }
 
 function simplifyRadical(number) {
+  // Handle negative numbers (for now, assume real numbers)
+  if (number < 0) {
+    return { coefficient: 1, radicand: number, error: "Cannot simplify negative radicand (for real numbers)" };
+  }
+   if (number === 0) return { coefficient: 0, radicand: 0 };
+   if (number === 1) return { coefficient: 1, radicand: 1 };
+
+
   // Find the largest perfect square factor
   let coefficient = 1;
   let radicand = number;
-  
-  for (let i = 2; i*i <= number; i++) {
-    while (radicand % (i*i) === 0) {
+
+  // Start checking from 2 up to the square root of the number
+  for (let i = 2; i * i <= radicand; i++) {
+    while (radicand % (i * i) === 0) {
       coefficient *= i;
-      radicand /= (i*i);
+      radicand /= (i * i);
     }
   }
-  
+
   return { coefficient, radicand };
 }
 
 function multiplyRadicals(a, b) {
+   if (a < 0 || b < 0) {
+       return { error: "Cannot calculate with negative numbers (for real numbers)"};
+   }
+   if (a === 0 || b === 0) return simplifyRadical(0);
   return simplifyRadical(a * b);
 }
 
 function addSubtractRadicals(a, b, operation) {
+   if (a < 0 || b < 0) {
+       return { error: "Cannot calculate with negative numbers (for real numbers)"};
+   }
+   if (a === 0 && b === 0) return simplifyRadical(0);
+   if (a === 0) return simplifyRadical(b);
+   if (b === 0) return simplifyRadical(a);
+
+
   const simplifiedA = simplifyRadical(a);
   const simplifiedB = simplifyRadical(b);
-  
+
+   if (simplifiedA.error || simplifiedB.error) {
+       return { error: simplifiedA.error || simplifiedB.error };
+   }
+
   if (simplifiedA.radicand === simplifiedB.radicand) {
-    const newCoefficient = operation === 'add' 
-      ? simplifiedA.coefficient + simplifiedB.coefficient 
+    const newCoefficient = operation === 'add'
+      ? simplifiedA.coefficient + simplifiedB.coefficient
       : simplifiedA.coefficient - simplifiedB.coefficient;
-    
-    return { 
-      coefficient: newCoefficient, 
+
+    return {
+      coefficient: newCoefficient,
       radicand: simplifiedA.radicand,
-      canCombine: true 
+      canCombine: true
     };
   } else {
     return {
@@ -212,8 +351,19 @@ function addSubtractRadicals(a, b, operation) {
 }
 
 function divideRadicals(a, b) {
-  if (b === 0) return "Cannot divide by zero";
-  return simplifyRadical(a / b);
+  if (b === 0) return { error: "Cannot divide by zero" };
+  if (a < 0 || b < 0) {
+    return { error: "Cannot calculate with negative numbers (for real numbers)" };
+  }
+  if (a === 0) return simplifyRadical(0);
+
+   // Simplify (√a) / (√b) = √(a/b)
+   // Check if a/b is a perfect square or can be simplified
+   const divisionResult = a / b;
+   if (divisionResult < 0) { // Should not happen with positive a, b but good check
+       return { error: "Cannot divide such that radicand is negative" };
+   }
+   return simplifyRadical(divisionResult);
 }
 
 window.calculateRadicals = function() {
@@ -221,57 +371,69 @@ window.calculateRadicals = function() {
   const radical2 = parseFloat(document.getElementById('radical2').value);
   const operation = document.getElementById('radicalOperation').value;
   const resultElement = document.getElementById('result4');
-  
+
   if (isNaN(radical1)) {
     resultElement.innerText = "Please enter a valid number for the first radical";
     return;
   }
-  
+
   let result;
   switch (operation) {
     case 'squareRoot':
-      if (radical1 < 0) {
-        resultElement.innerText = "Cannot calculate square root of a negative number";
-        return;
-      }
-      result = findSquareRoot(radical1);
-      resultElement.innerText = `Square root of ${radical1} = ${result}`;
-      break;
-      
-    case 'simplify':
-      if (radical1 < 0) {
-        resultElement.innerText = "Cannot simplify radical of a negative number";
-        return;
-      }
       result = simplifyRadical(radical1);
-      if (result.coefficient === 1) {
+      if (result.error) {
+          resultElement.innerText = result.error;
+      } else if (result.coefficient === 0) {
+           resultElement.innerText = `√${radical1} = 0`;
+      }
+       else if (result.radicand === 1) { // If perfect square
+        resultElement.innerText = `√${radical1} = ${result.coefficient}`;
+      } else if (result.coefficient === 1) { // If not simplifyable further (coefficient 1)
+        resultElement.innerText = `√${radical1} = √${result.radicand}`;
+      } else { // If simplified radical (coefficient > 1)
+        resultElement.innerText = `√${radical1} = ${result.coefficient}√${result.radicand}`;
+      }
+      break;
+
+    case 'simplify':
+      result = simplifyRadical(radical1);
+      if (result.error) {
+          resultElement.innerText = result.error;
+      } else if (result.coefficient === 0) {
+           resultElement.innerText = `√${radical1} = 0`;
+      }
+       else if (result.radicand === 1) {
+        resultElement.innerText = `√${radical1} = ${result.coefficient}`;
+      } else if (result.coefficient === 1) {
         resultElement.innerText = `√${radical1} = √${result.radicand}`;
       } else {
         resultElement.innerText = `√${radical1} = ${result.coefficient}√${result.radicand}`;
       }
       break;
-      
+
     case 'multiply':
       if (isNaN(radical2)) {
         resultElement.innerText = "Please enter a valid number for the second radical";
         return;
       }
-      if (radical1 < 0 || radical2 < 0) {
-        resultElement.innerText = "Cannot calculate with negative numbers";
-        return;
-      }
       result = multiplyRadicals(radical1, radical2);
-      resultElement.innerText = `√${radical1} × √${radical2} = √${radical1 * radical2} = ${result.coefficient}√${result.radicand}`;
+       if (result.error) {
+          resultElement.innerText = result.error;
+      } else if (result.coefficient === 0) {
+           resultElement.innerText = `√${radical1} × √${radical2} = √${radical1 * radical2} = 0`;
+      } else if (result.radicand === 1) {
+        resultElement.innerText = `√${radical1} × √${radical2} = √${radical1 * radical2} = ${result.coefficient}`;
+      } else if (result.coefficient === 1) {
+        resultElement.innerText = `√${radical1} × √${radical2} = √${radical1 * radical2} = √${result.radicand}`;
+      } else {
+        resultElement.innerText = `√${radical1} × √${radical2} = √${radical1 * radical2} = ${result.coefficient}√${result.radicand}`;
+      }
       break;
-      
+
     case 'add':
     case 'subtract':
       if (isNaN(radical2)) {
         resultElement.innerText = "Please enter a valid number for the second radical";
-        return;
-      }
-      if (radical1 < 0 || radical2 < 0) {
-        resultElement.innerText = "Cannot calculate with negative numbers";
         return;
       }
       result = addSubtractRadicals(radical1, radical2, operation);
@@ -281,14 +443,25 @@ window.calculateRadicals = function() {
           resultElement.innerText = `√${radical1} ${opSymbol} √${radical2} = 0`;
         } else if (result.radicand === 1) {
           resultElement.innerText = `√${radical1} ${opSymbol} √${radical2} = ${result.coefficient}`;
+        } else if (result.coefficient === 1) {
+          resultElement.innerText = `√${radical1} ${opSymbol} √${radical2} = √${result.radicand}`;
+        } else if (result.coefficient === -1) {
+          resultElement.innerText = `√${radical1} ${opSymbol} √${radical2} = -√${result.radicand}`;
         } else {
           resultElement.innerText = `√${radical1} ${opSymbol} √${radical2} = ${result.coefficient}√${result.radicand}`;
         }
       } else {
-        resultElement.innerText = `√${radical1} ${opSymbol} √${radical2} cannot be combined further`;
+        const simpA = simplifyRadical(radical1);
+        const simpB = simplifyRadical(radical2);
+        let strA = (simpA.coefficient === 1 ? '' : simpA.coefficient) + (simpA.radicand === 1 ? '' : `√${simpA.radicand}`);
+        let strB = (simpB.coefficient === 1 ? '' : simpB.coefficient) + (simpB.radicand === 1 ? '' : `√${simpB.radicand}`);
+        if (strA === '') strA = simpA.radicand; // Case where radicand is 1, coefficient is 1
+        if (strB === '') strB = simpB.radicand; // Case where radicand is 1, coefficient is 1
+
+        resultElement.innerText = `${strA} ${opSymbol} ${strB} cannot be combined further`;
       }
       break;
-      
+
     case 'divide':
       if (isNaN(radical2)) {
         resultElement.innerText = "Please enter a valid number for the second radical";
@@ -299,11 +472,21 @@ window.calculateRadicals = function() {
         return;
       }
       if (radical1 < 0 || radical2 < 0) {
-        resultElement.innerText = "Cannot calculate with negative numbers";
+        resultElement.innerText = "Cannot calculate with negative numbers (for real numbers)";
         return;
       }
       result = divideRadicals(radical1, radical2);
-      resultElement.innerText = `√${radical1} ÷ √${radical2} = √${radical1 / radical2} = ${result.coefficient}√${result.radicand}`;
+      if (result.error) {
+          resultElement.innerText = result.error;
+      } else if (result.coefficient === 0) {
+           resultElement.innerText = `√${radical1} ÷ √${radical2} = 0`;
+      } else if (result.radicand === 1) {
+        resultElement.innerText = `√${radical1} ÷ √${radical2} = √${radical1 / radical2} = ${result.coefficient}`;
+      } else if (result.coefficient === 1) {
+        resultElement.innerText = `√${radical1} ÷ √${radical2} = √${radical1 / radical2} = √${result.radicand}`;
+      } else {
+        resultElement.innerText = `√${radical1} ÷ √${radical2} = √${radical1 / radical2} = ${result.coefficient}√${result.radicand}`;
+      }
       break;
   }
 };
@@ -312,119 +495,193 @@ window.calculateRadicals = function() {
 function solveOneStepEquation(equation, operation) {
   // Parse the equation in the form "ax + b = c" or "x + b = c" or "ax = c"
   let leftSide, rightSide, variable, coefficient, constant;
-  
+
   // Split by equals sign
   const parts = equation.split('=');
   if (parts.length !== 2) {
     return "Invalid equation format. Use format like 'ax + b = c'";
   }
-  
+
   leftSide = parts[0].trim();
   rightSide = parts[1].trim();
-  
+
   // Extract variable (assume it's 'x' for simplicity)
   if (!leftSide.includes('x')) {
     return "Equation must contain variable 'x' on the left side";
   }
-  
+
   let solution;
-  
-  switch(operation) {
-    case 'addition':
-      // Form: x + b = c
-      if (leftSide.includes('+')) {
-        const terms = leftSide.split('+');
-        if (terms[0].trim() === 'x') {
-          constant = parseFloat(terms[1].trim());
-          rightSide = parseFloat(rightSide);
-          solution = rightSide - constant;
-        } else if (terms[1].trim() === 'x') {
-          constant = parseFloat(terms[0].trim());
-          rightSide = parseFloat(rightSide);
-          solution = rightSide - constant;
+
+  try {
+    // Evaluate the right side in case it's an expression
+    const c = evaluateExpr(rightSide);
+    if (isNaN(c)) return "Invalid number on the right side";
+
+    switch (operation) {
+      case 'addition':
+        // Form: x + b = c
+        // Handle 'b + x = c' and 'x + b = c'
+        const addMatch = leftSide.match(/^(\s*\d*\.?\d*\s*)?x\s*\+\s*(\s*\d*\.?\d*\s*)$/); // x + b
+        const addMatchReverse = leftSide.match(/^(\s*\d*\.?\d*\s*)\+\s*(\s*\d*\.?\d*\s*)?x$/); // b + x
+
+        if (addMatch) {
+          constant = parseFloat(addMatch[2]);
+          solution = c - constant;
+        } else if (addMatchReverse) {
+          constant = parseFloat(addMatchReverse[1]);
+          solution = c - constant;
         } else {
           return "For addition, use format 'x + b = c' or 'b + x = c'";
         }
-      } else {
-        return "Addition equation must contain '+'";
-      }
-      break;
-      
-    case 'subtraction':
-      // Forms: x - b = c or b - x = c
-      if (leftSide.includes('-')) {
-        const terms = leftSide.split('-');
-        if (terms[0].trim() === 'x') {
-          constant = parseFloat(terms[1].trim());
-          rightSide = parseFloat(rightSide);
-          solution = rightSide + constant;
-        } else if (terms[1].trim() === 'x') {
-          constant = parseFloat(terms[0].trim());
-          rightSide = parseFloat(rightSide);
-          solution = constant - rightSide;
+        break;
+
+      case 'subtraction':
+        // Forms: x - b = c or b - x = c
+        const subMatch = leftSide.match(/^(\s*\d*\.?\d*\s*)?x\s*-\s*(\s*\d*\.?\d*\s*)$/); // x - b
+        const subMatchReverse = leftSide.match(/^(\s*\d*\.?\d*\s*)-\s*(\s*\d*\.?\d*\s*)?x$/); // b - x
+
+        if (subMatch) {
+          constant = parseFloat(subMatch[2]);
+          solution = c + constant;
+        } else if (subMatchReverse) {
+          constant = parseFloat(subMatchReverse[1]);
+          solution = constant - c;
         } else {
           return "For subtraction, use format 'x - b = c' or 'b - x = c'";
         }
-      } else {
-        return "Subtraction equation must contain '-'";
-      }
-      break;
-      
-    case 'multiplication':
-      // Form: ax = c
-      if (!leftSide.includes('+') && !leftSide.includes('-')) {
-        if (leftSide === 'x') {
-          solution = parseFloat(rightSide);
-        } else {
-          coefficient = parseFloat(leftSide.replace('x', ''));
-          rightSide = parseFloat(rightSide);
+        break;
+
+      case 'multiplication':
+        // Form: ax = c
+        const multMatch = leftSide.match(/^(\s*[+-]?\s*\d*\.?\d*)\s*x$/); // ax
+        const multMatchSimple = leftSide.trim(); // x
+
+        if (multMatch) {
+          coefficient = parseFloat(multMatch[1]);
           if (coefficient === 0) {
             return "Coefficient cannot be zero";
           }
-          solution = rightSide / coefficient;
+          solution = c / coefficient;
+        } else if (multMatchSimple === 'x') {
+          solution = c;
+        } else {
+          return "For multiplication, use format 'ax = c'";
         }
-      } else {
-        return "For multiplication, use format 'ax = c'";
-      }
-      break;
-      
-    case 'division':
-      // Form: x/a = c
-      if (leftSide.includes('/')) {
-        const terms = leftSide.split('/');
-        if (terms[0].trim() === 'x') {
-          constant = parseFloat(terms[1].trim());
-          rightSide = parseFloat(rightSide);
+        break;
+
+      case 'division':
+        // Form: x/a = c
+        const divMatch = leftSide.match(/^x\s*\/\s*(\s*\d*\.?\d*\s*)$/); // x/a
+
+        if (divMatch) {
+          constant = parseFloat(divMatch[1]);
           if (constant === 0) {
             return "Cannot divide by zero";
           }
-          solution = rightSide * constant;
+          solution = c * constant;
         } else {
           return "For division, use format 'x/a = c'";
         }
-      } else {
-        return "Division equation must contain '/'";
-      }
-      break;
-      
-    default:
-      return "Please select a valid operation";
+        break;
+
+      default:
+        return "Please select a valid operation";
+    }
+
+    return `x = ${solution}`;
+  } catch (error) {
+    return "Error parsing equation or calculating result.";
   }
-  
-  return `x = ${solution}`;
 }
 
 window.solveEquation = function() {
   const equation = document.getElementById('equation').value;
   const operation = document.getElementById('equationType').value;
-  
+
   if (!equation) {
     document.getElementById('result5').innerText = "Please enter an equation";
     return;
   }
-  
+
   const result = solveOneStepEquation(equation, operation);
   document.getElementById('result5').innerText = result;
+};
+
+// Circle Calculations
+window.calculateCircleProperties = function() {
+  const inputValue = parseFloat(document.getElementById('circleInput').value);
+  const inputType = document.getElementById('circleInputType').value;
+  const roundingOption = document.getElementById('circleRounding').value; // Get rounding option
+  const resultElement = document.getElementById('result6');
+
+  if (isNaN(inputValue) || inputValue < 0) {
+    resultElement.innerText = "Please enter a valid positive number.";
+    return;
+  }
+
+  let radius, diameter, area, circumference;
+  const pi = Math.PI;
+  
+  let decimalPlaces;
+  switch(roundingOption) {
+      case 'tenth':
+          decimalPlaces = 1;
+          break;
+      case 'hundredth':
+          decimalPlaces = 2;
+          break;
+      case 'none':
+      default:
+          decimalPlaces = 4; // Keep the previous default or set higher precision
+          break;
+  }
+
+
+  switch (inputType) {
+    case 'radius':
+      radius = inputValue;
+      diameter = 2 * radius;
+      area = pi * Math.pow(radius, 2);
+      circumference = 2 * pi * radius;
+      break;
+    case 'diameter':
+      diameter = inputValue;
+      radius = diameter / 2;
+      area = pi * Math.pow(radius, 2);
+      circumference = pi * diameter;
+      break;
+    case 'area':
+      area = inputValue;
+      if (area < 0) {
+          resultElement.innerText = "Area cannot be negative.";
+          return;
+      }
+      radius = Math.sqrt(area / pi);
+      diameter = 2 * radius;
+      circumference = 2 * pi * radius;
+      break;
+    case 'circumference':
+      circumference = inputValue;
+       if (circumference < 0) {
+          resultElement.innerText = "Circumference cannot be negative.";
+          return;
+      }
+      radius = circumference / (2 * pi);
+      diameter = circumference / pi;
+      area = pi * Math.pow(radius, 2);
+      break;
+    default:
+      resultElement.innerText = "Invalid input type selected.";
+      return;
+  }
+
+  resultElement.innerHTML = `
+    Based on the input (${inputValue} as ${inputType}):<br>
+    Radius: ${radius.toFixed(decimalPlaces)}<br>
+    Diameter: ${diameter.toFixed(decimalPlaces)}<br>
+    Area: ${area.toFixed(decimalPlaces)}<br>
+    Circumference: ${circumference.toFixed(decimalPlaces)}
+  `;
 };
 
 // Add event listener for iframe error handling
