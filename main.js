@@ -1,6 +1,18 @@
-// code property of ryan goodrich
-// if you see any comments, they were auto-added by chatgpt
-// because i ran my code through it from time to time to fix troubles
+// Math Operations Site - simple JS + HTML tool for a variety of math purposes.
+// Copyright (C) 2025, Ryan Goodrich (aka "Cobalt")
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see https://www.gnu.org/licenses/
 
 let Variables = {
   maxNumber: 1000000, // Maximum number allowed for calculations
@@ -89,20 +101,24 @@ window.calculatePrimeFactorization = function() {
 
 // Expression Simplification
 function expandParentheses(expr) {
-  // Matches coefficient (optional sign and number) immediately before a single-level parenthesis
-  const parenRegex = /([+-]?(?:\d*\.?\d+|\d+)?)(\()([^()]+)\)/;
+  // Matches coefficient (optional sign and number) optionally followed by '*' before parentheses
+  const parenRegex = /([+-]?(?:\d*\.?\d+|\d+)?)(?:\*)?\(([^()]+)\)/;
+
   let match;
   while ((match = expr.match(parenRegex))) {
-    const [whole, coefStr, , inner] = match;
+    const [whole, coefStr, inner] = match;
+
     // Determine the numeric coefficient
     let coef;
     if (!coefStr || coefStr === '+') coef = 1;
     else if (coefStr === '-') coef = -1;
     else coef = parseFloat(coefStr);
+
     // Split inner content into simple terms
     const innerTerms = inner
       .match(/[+-]?[0-9]*(?:\.[0-9]+)?[a-zA-Z]?(?:\^[0-9]+)?/g)
       ?.filter(Boolean) || [];
+
     // Multiply each inner term by coef
     let expanded = innerTerms
       .map(term => {
@@ -110,12 +126,9 @@ function expandParentheses(expr) {
         if (!m) return '';
         let sign = m[1] || '+';
         let numStr = m[2], variable = m[3] || '', exp = m[4] || '';
-        // Determine term's numeric part
         let tcoef = numStr ? parseFloat(numStr) : 1;
         if (sign === '-') tcoef = -tcoef;
-        // Apply outer coefficient
         tcoef *= coef;
-        // Build expanded term string
         let out = tcoef < 0 ? '-' : '+';
         const abs = Math.abs(tcoef);
         if (variable) {
@@ -128,9 +141,7 @@ function expandParentheses(expr) {
         return out;
       })
       .join('');
-    // Drop leading '+' if present
     if (expanded.startsWith('+')) expanded = expanded.slice(1);
-    // Replace the entire parenthetical expression
     expr = expr.replace(whole, expanded);
   }
   return expr;
