@@ -1,3 +1,7 @@
+// code property of ryan goodrich
+// if you see any comments, they were auto-added by chatgpt
+// because i ran my code through it from time to time to fix troubles
+
 let Variables = {
   maxNumber: 1000000, // Maximum number allowed for calculations
   maxTerms: 10, // Maximum number of terms in an expression - Note: This is not currently enforced
@@ -83,10 +87,61 @@ window.calculatePrimeFactorization = function() {
   document.getElementById('result1').innerText = `Prime factorization of ${num} is: ${primeFactors.join(' × ')}`;
 };
 
+// Expression Simplification
+function expandParentheses(expr) {
+  // Matches coefficient (optional sign and number) immediately before a single-level parenthesis
+  const parenRegex = /([+-]?(?:\d*\.?\d+|\d+)?)(\()([^()]+)\)/;
+  let match;
+  while ((match = expr.match(parenRegex))) {
+    const [whole, coefStr, , inner] = match;
+    // Determine the numeric coefficient
+    let coef;
+    if (!coefStr || coefStr === '+') coef = 1;
+    else if (coefStr === '-') coef = -1;
+    else coef = parseFloat(coefStr);
+    // Split inner content into simple terms
+    const innerTerms = inner
+      .match(/[+-]?[0-9]*(?:\.[0-9]+)?[a-zA-Z]?(?:\^[0-9]+)?/g)
+      ?.filter(Boolean) || [];
+    // Multiply each inner term by coef
+    let expanded = innerTerms
+      .map(term => {
+        const m = term.match(/^([+-]?)([0-9]*(?:\.[0-9]+)?)([a-zA-Z]?)(?:\^([0-9]+))?$/);
+        if (!m) return '';
+        let sign = m[1] || '+';
+        let numStr = m[2], variable = m[3] || '', exp = m[4] || '';
+        // Determine term's numeric part
+        let tcoef = numStr ? parseFloat(numStr) : 1;
+        if (sign === '-') tcoef = -tcoef;
+        // Apply outer coefficient
+        tcoef *= coef;
+        // Build expanded term string
+        let out = tcoef < 0 ? '-' : '+';
+        const abs = Math.abs(tcoef);
+        if (variable) {
+          if (abs !== 1) out += abs;
+          out += variable;
+          if (exp) out += '^' + exp;
+        } else {
+          out += abs;
+        }
+        return out;
+      })
+      .join('');
+    // Drop leading '+' if present
+    if (expanded.startsWith('+')) expanded = expanded.slice(1);
+    // Replace the entire parenthetical expression
+    expr = expr.replace(whole, expanded);
+  }
+  return expr;
+}
+
 function simplifyExpr(expr) {
-  // Basic cleanup and handle leading sign/space
+  // Basic cleanup
   expr = expr.replace(/\s+/g, '');
-  if (expr.startsWith('+')) expr = expr.substring(1); // Remove leading plus if exists
+  if (expr.startsWith('+')) expr = expr.substring(1);
+  // Expand any simple parentheses (distribution)
+  expr = expandParentheses(expr);
 
   // Regex to find terms: [+-]? followed by optional number (int or float), optional variable, optional exponent
   // This regex assumes the input is expanded (no parentheses like 3(x+6))
@@ -209,15 +264,56 @@ function evaluateExpr(expr) {
   // Basic check to prevent arbitrary code execution
   // This is a simplified approach and can be bypassed with complex expressions.
   // For a robust solution, a proper parser is needed.
-  if (/^[0-9+\-*/().\s]+$/.test(expr)) {
+
+  // Check for variable assignment syntax
+  let xValue = null;
+  const assignmentSeparator = expr.indexOf('&');
+
+  if (assignmentSeparator > -1) {
+    const assignmentPart = expr.substring(0, assignmentSeparator).trim();
+    const expressionPart = expr.substring(assignmentSeparator + 1).trim();
+
+    const assignmentMatch = assignmentPart.match(/^x\s*=\s*(-?\d*\.?\d+)$/);
+
+    if (assignmentMatch) {
+      xValue = parseFloat(assignmentMatch[1]);
+      expr = expressionPart; // Use the expression part for evaluation
+    } else {
+       // If '&' is present but assignment format is wrong, treat as invalid
+       return "Invalid format for variable assignment (use x=value&expression)";
+    }
+  }
+
+  // Replace 'x' with its value if specified
+  if (xValue !== null) {
+      expr = expr.replace(/x/g, xValue.toString());
+  }
+
+  // Validate characters *after* potential replacement of 'x'
+  let charactersToCheck = expr;
+  if (xValue !== null) {
+    charactersToCheck = expr; // Check the string *after* x replacement
+  } else {
+    // If no assignment, allow 'x' in the original expression for potential future use
+    // but the regex below still restricts to just numbers and operators.
+    // To properly handle 'x' *without* assignment would require more complex parsing.
+    // For this prompt, we assume 'x' is only used *with* the 'x=value&' syntax.
+    // The existing regex check will handle cases *without* x=value& format.
+  }
+
+  if (/^[0-9+\-*/().\s]+$/.test(charactersToCheck)) {
      try {
-       // Use Function constructor for safer evaluation than direct eval()
-       // Still not perfectly safe, but better than raw eval.
-       // For production, a dedicated math expression library is recommended.
-       const safeEval = new Function('return ' + expr);
-       return safeEval();
+       const safeEval = new Function('return ' + charactersToCheck);
+       const result = safeEval();
+
+       if (!isFinite(result)) {
+            return "Result is too large or too small or undefined";
+       }
+
+       return result;
+
      } catch (error) {
-       return "Error in evaluation";
+       return "Error in evaluation: " + error.message;
      }
   } else {
      return "Expression contains invalid characters or format";
@@ -232,15 +328,15 @@ window.simplifyExpression = function() {
 
 window.evaluateExpression = function() {
   const expr = document.getElementById('expression').value;
-  const result = evaluateExpr(expr); // evaluateExpr now returns error message directly
+  const result = evaluateExpr(expr);
   document.getElementById('result2').innerText = `Evaluated result: ${result}`;
 };
 
 // Exponents and Roots
 window.calculatePower = function() {
   const base = parseFloat(document.getElementById('base').value);
-  const exponent = parseFloat(document.getElementById('exponent').value); // Allow non-integer exponents for roots
-  if (isNaN(base) || isNaN(exponent) || Math.abs(exponent) > Variables.maxExponent) { // Check absolute value for max exponent
+  const exponent = parseFloat(document.getElementById('exponent').value); 
+  if (isNaN(base) || isNaN(exponent) || Math.abs(exponent) > Variables.maxExponent) { 
     document.getElementById('result3').innerText = "Please enter valid numbers (max exponent " + Variables.maxExponent + ").";
     return;
   }
@@ -257,7 +353,7 @@ window.calculatePower = function() {
 
 window.calculateRoot = function() {
   const base = parseFloat(document.getElementById('base').value);
-  const root = parseFloat(document.getElementById('exponent').value); // 'exponent' input is used for the root index
+  const root = parseFloat(document.getElementById('exponent').value); 
   if (isNaN(base) || isNaN(root) || root === 0 || Math.abs(root) > Variables.maxExponent) {
     document.getElementById('result3').innerText = "Please enter valid numbers (root cannot be 0, max root index " + Variables.maxExponent + ").";
     return;
@@ -611,7 +707,7 @@ window.solveEquation = function() {
 window.calculateCircleProperties = function() {
   const inputValue = parseFloat(document.getElementById('circleInput').value);
   const inputType = document.getElementById('circleInputType').value;
-  const roundingOption = document.getElementById('circleRounding').value; // Get rounding option
+  const roundingOption = document.getElementById('circleRounding').value; 
   const resultElement = document.getElementById('result6');
 
   if (isNaN(inputValue) || inputValue < 0) {
@@ -632,7 +728,7 @@ window.calculateCircleProperties = function() {
           break;
       case 'none':
       default:
-          decimalPlaces = 4; // Keep the previous default or set higher precision
+          decimalPlaces = 4; 
           break;
   }
 
